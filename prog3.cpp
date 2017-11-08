@@ -23,7 +23,7 @@ struct packet {
 
 // Node structure for experimentation log
 struct node {
-	// loggin info
+	// logging info
 };
 
 // Global packets queue
@@ -31,7 +31,7 @@ std::priority_queue<packet> pktQ;
 
 
 /****************************
- *			DCF             *
+ *          DCF             *
  ****************************/
 void DCF() {
 	std::ofstream outFile;
@@ -44,9 +44,7 @@ void DCF() {
 	int finishTime = 0;
 	
 	while (pktQ.size() != 0){		
-		
-		// still need to account for collisions and changing cws
-		
+				
 		/* check transmitting finish time against clock*/
 		if (finishTime > clock)
 			busy = 1;
@@ -56,12 +54,15 @@ void DCF() {
 			temp = pktQ.top();
 			if (temp.time <= clock) {
 				temp.time = temp.time + dif; // account for dif in start time
+				temp.cw = 2 ^ (4 + collision); // adjust collision window based on number of collisions
+				if (temp.cw > 1024)
+					temp.cw = 1024;
 				ready.push_back(temp);
 				pktQ.pop();
 			}
 			if (temp.time > clock)
 				break;
-		}while (pktQ.size() != 0 && temp.time <= clock)
+		} while (pktQ.size() != 0 && temp.time <= clock)
 		
 		/* For all ready packets determine action */	
 		i = 0;
@@ -93,7 +94,6 @@ void DCF() {
 				pktQ.push(ready[i]);
 				ready.erase(i);
 			}
-			
 			
 			i++;
 		} while (i < ready.size())
@@ -129,7 +129,7 @@ void RTSCTS() {
 }
 
 /********************************************
- *	Read from traffic file and add to queue *
+ *  Read from traffic file and add to queue *
  ********************************************/
 int main(int argc, char *argv[]) {
 	
@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
 		inFile >> pktTemp.pkt_size;
 		inFile >> pktTemp.time;
 		pktTemp.nav = 44 + 10 + ((pkt_size / 6000000) * 1000000);
-		pktTemp.cw = 32;
+		pktTemp.cw = 16;
 		pktTemp.finish = 0;
 		pktQ.push(pktTemp);
 	}
