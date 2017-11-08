@@ -19,6 +19,12 @@ struct packet {
 		return time < rhs.time;
 	}
 };
+
+// Node structure for experimentation log
+struct node {
+	// loggin info
+};
+
 // Global packets queue
 std::priority_queue<packet> pktQ;
 
@@ -37,6 +43,8 @@ void DCF() {
 	int finishTime = 0;
 	
 	while (pktQ.size() != 0){		
+		
+		// still need to account for collisions and changing cws
 		
 		/* check transmitting finish time against clock*/
 		if (finishTime > clock)
@@ -128,6 +136,8 @@ int main(int argc, char *argv[]) {
 	inFile.open(argv[2]);
 	struct packet pktTemp;
 	int size;
+
+	// Still need to build array of node structs for logging purposes
 	
 	// Read in # of packets
 	inFile >> size;
