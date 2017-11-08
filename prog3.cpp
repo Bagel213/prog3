@@ -73,7 +73,7 @@ void DCF() {
 			}
 			
 			// dif and cw complete and idle, add to send deque
-			else if (busy == 0 && ready[i].time < clock && cw == 0) { 
+			if (busy == 0 && ready[i].time < clock && cw == 0) { 
 				ready[i].finish = ready[i].time + ready[i].nav;
 				transmitting.push_back(ready[i]);
 				ready.erase(i);
