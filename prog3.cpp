@@ -57,24 +57,28 @@ void DCF() {
 		/* For all ready packets determine action */	
 		i = 0;
 		do{
-			if (busy == 0 && ready[i].time > clock && cw != 0) { //ready.time > clock means dif done, decrement cw
+			// ready.time > clock means dif done, decrement cw
+			if (busy == 0 && ready[i].time > clock && cw != 0) { 
 				cw--;
 				ready[i].time = clock;
 			}
 			
-			else if (busy == 0 && ready[i].time > clock && cw == 0) { // dif and cw complete and idle, add to send deque
+			// dif and cw complete and idle, add to send deque
+			else if (busy == 0 && ready[i].time > clock && cw == 0) { 
 				ready[i].finish = ready[i].time + ready[i].nav;
 				transmitting.push_back(ready[i]);
 				ready.erase(i);
 			}
 			
+			// Dif complete but channel busy put back in queue with decremented cw
 			else if (busy == 1 && ready[i].time >= clock && cw != 0){ //Dif complete but channel busy put back in queue with decremented cw
 				ready[i].time = ready[i].time = finishTime + difs;
 				pktQ.push(ready[i]);
 				ready.erase(i);
 			}
 
-			else if (busy == 1 && ready[i].time < clock) { //ready.time > clock dif has not finished and busy, change start time 
+			// ready.time > clock dif has not finished and busy, change start time
+			else if (busy == 1 && ready[i].time < clock) {  
 				ready[i].time = finishTime + difs;
 				pktQ.push(ready[i]);
 				ready.erase(i);
