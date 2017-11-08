@@ -80,14 +80,14 @@ void DCF() {
 			
 			// Dif complete but channel busy put back in queue with decremented cw
 			else if (busy == 1 && ready[i].time >= clock && cw != 0){ 
-				ready[i].time = ready[i].time = finishTime + difs;
+				ready[i].time = ready[i].time = finishTime;
 				pktQ.push(ready[i]);
 				ready.erase(i);
 			}
 
 			// ready.time > clock dif has not finished and busy, change start time
 			else if (busy == 1 && ready[i].time < clock) {  
-				ready[i].time = finishTime + difs;
+				ready[i].time = finishTime;
 				pktQ.push(ready[i]);
 				ready.erase(i);
 			}
