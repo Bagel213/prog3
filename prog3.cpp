@@ -66,28 +66,28 @@ void DCF() {
 		i = 0;
 		do{
 			// ready.time < clock means dif done, decrement cw
-			if (busy == 0 && ready[i].time <= clock && cw != 0) { 
+			if (busy == 0 && ready[i].time < clock && cw != 0) { 
 				if (clock%9 == 0) // time slots multiples of 9
 					cw--;
 				ready[i].time = clock;
 			}
 			
 			// dif and cw complete and idle, add to send deque
-			else if (busy == 0 && ready[i].time <= clock && cw == 0) { 
+			else if (busy == 0 && ready[i].time < clock && cw == 0) { 
 				ready[i].finish = ready[i].time + ready[i].nav;
 				transmitting.push_back(ready[i]);
 				ready.erase(i);
 			}
 			
 			// Dif complete but channel busy put back in queue with decremented cw
-			else if (busy == 1 && ready[i].time <= clock && cw != 0){ 
+			else if (busy == 1 && ready[i].time < clock && cw != 0){ 
 				ready[i].time = ready[i].time = finishTime;
 				pktQ.push(ready[i]);
 				ready.erase(i);
 			}
 
 			// ready.time > clock dif has not finished and busy, change start time
-			else if (busy == 1 && ready[i].time > clock) {  
+			else if (busy == 1 && ready[i].time >= clock) {  
 				ready[i].time = finishTime;
 				pktQ.push(ready[i]);
 				ready.erase(i);
