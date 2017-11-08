@@ -4,6 +4,7 @@
 #include <string>
 #include <cstdlib>
 #include <vector>
+#include <deque>
 
 // Packet structure
 struct packet {
@@ -161,7 +162,7 @@ int main(int argc, char *argv[]) {
 	// Call appropriate simulator function
 	if (argv[1] == "DCF" || argv[1] == "dcf")
 		DCF();
-	else if (argv[1] == "RTSCTS" || argv[1] == "rtscts")
+	else if (argv[1] == "RTS" || argv[1] == "rts")
 		RTSCTS();
 	else
 		std::cout << "Invalid simulator selection.";
