@@ -26,6 +26,7 @@ struct node {
 	
 	int node_num;
 	// logging info
+	int = pktsSent;
 };
 
 // Global packets queue
@@ -42,14 +43,23 @@ void DCF(struct node *nodeList) {
 	std::deque<packet> ready, transmitting;
 	struct packet temp;
 	int dif = 28;
-	int collision = 0;
 	int finishTime = 0;
+	
+	// Logging variables
+	int collisions = 0, transmissions = 0;
+	int freeTime = 0;
 	
 	while (pktQ.size() != 0){		
 				
 		/* check transmitting finish time against clock*/
 		if (finishTime > clock)
 			busy = 1;
+		else {
+			busy = 0;
+			freeTime += 1;
+		}
+
+		//print out any that finish transmitting and remove from tranmitting deque
 
 		/* Add all ready packets to ready deque */ 
 		do {
@@ -69,28 +79,29 @@ void DCF(struct node *nodeList) {
 		/* For all ready packets determine action */	
 		i = 0;
 		do{
-			// ready.time < clock means dif done, decrement cw
+			// line idle, dif done, decrement cw
 			if (busy == 0 && ready[i].time < clock && ready[i].cw != 0) { 
 				if (clock%9 == 0) // time slots multiples of 9
 					ready[i].cw--;
 				ready[i].time = clock;
 			}
 			
-			// dif and cw complete and idle, add to send deque
+			// dif and cw complete, line idle, add to send deque
 			if (busy == 0 && ready[i].time < clock && ready[i].cw == 0) {
 				ready[i].finish = ready[i].time + ready[i].nav;
 				transmitting.push_back(ready[i]);
+				transmissions += 1;
 				ready.erase(ready.begin() + i);
 			}
 			
-			// Dif complete but channel busy put back in queue with decremented cw
+			// Dif complete line goes busy put back in queue with decremented cw and updated start time
 			else if (busy == 1 && ready[i].time < clock && ready[i].cw != 0){
 				ready[i].time = ready[i].time = finishTime;
 				pktQ.push(ready[i]);
 				ready.erase(ready.begin() + i);
 			}
 
-			// ready.time > clock dif has not finished and busy, change start time
+			// dif has not finished line goes busy, change start time and put back in queue
 			else if (busy == 1 && ready[i].time >= clock) {  
 				ready[i].time = finishTime;
 				pktQ.push(ready[i]);
@@ -104,14 +115,13 @@ void DCF(struct node *nodeList) {
 		/* Message transmision handling	*/
 		if (transmitting.size() > 1) { //collision
 			// change start time put back in queue
-			// add to collision	count`
+			collisions += transmitting.size() - 1;
 			finishTime = transmitting[0].finish;
-			//remove from transmitting
+			
 		}
 		else if (transmitting.size() == 1) {
 			//transmit message
-			finishTime = transmitting[0].finish;
-			//remove from transmitting
+			finishTime = transmitting[0].finish;	
 		}
 		
 		else if (transmitting.size() == 0)

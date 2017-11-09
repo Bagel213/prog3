@@ -1,0 +1,2 @@
+is number packets sent per node total including resend or only successful sends?
+How to calculate latency with no distance?  Transmit time and dest_node receive are instantaneous with no distance
