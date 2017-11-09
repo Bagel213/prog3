@@ -58,7 +58,7 @@ void DCF(struct node *nodeList) {
 			busy = 1;
 		else {
 			busy = 0;
-			freeTime += 1;
+			freeTime += clock - finishTime;
 		}
 
 		//print out any that finish transmitting and remove from tranmitting deque
@@ -129,8 +129,8 @@ void DCF(struct node *nodeList) {
 		else if (transmitting.size() == 0)
 			finishTime = 0;
 
-		/* Clock to next slot time */
-		clock += 1;
+		/* Clock advance */
+		clock += 9;
 
 
 	}
