@@ -26,7 +26,7 @@ struct node {
 	
 	int node_num;
 	// logging info
-	int = pktsSent;
+	int pktsSent;
 };
 
 // Global packets queue
@@ -66,7 +66,7 @@ void DCF(struct node *nodeList) {
 			temp = pktQ.top();
 			if (temp.time <= clock) {
 				temp.time = temp.time + dif; // account for dif in start time
-				temp.cw = 2 ^ (4 + collision); // adjust collision window based on number of collisions
+				temp.cw = 2 ^ (4 + collisions); // adjust collision window based on number of collisions
 				if (temp.cw > 1024)
 					temp.cw = 1024;
 				ready.push_back(temp);
