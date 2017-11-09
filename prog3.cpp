@@ -48,7 +48,9 @@ void DCF(struct node *nodeList) {
 	// Logging variables
 	int collisions = 0, transmissions = 0;
 	int freeTime = 0;
-	
+	//float throughput;
+	//float latency;
+
 	while (pktQ.size() != 0){		
 				
 		/* check transmitting finish time against clock*/
