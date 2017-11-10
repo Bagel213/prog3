@@ -38,14 +38,15 @@ std::priority_queue<packet> pktQ;
  *          DCF             *
  ****************************/
 void DCF(struct node *nodeList) {
+	
 	std::ofstream outFile;
-	int clock = 0, i;
+	int clock = 0, i, j=0, randomizer;
 	bool busy = 0;
 	std::deque<packet> ready, transmitting;
 	struct packet temp;
 	int dif = 28;
 	int finishTime = 0;
-	int collisions = 0;
+	int collisions = 0, colRand;
 
 	do {
 		
@@ -54,11 +55,14 @@ void DCF(struct node *nodeList) {
 			if (pktQ.size() != 0) {
 				temp = pktQ.top();
 				if (temp.time <= clock) {
-					temp.time = temp.time + dif;         // account for DIF
-					if (temp.cwPause == 0)               // check if cw is paused
-						temp.cw = pow(2,(4+collisions)); // cw based on # of collisions
-					if (temp.cw > 1024)                  // max cw 1024
-						temp.cw = 1024;
+					temp.time = temp.time + dif;                              // account for DIF
+					if (temp.cwPause == 0) {                                  // check if cw countdown is paused
+						colRand = collisions;
+						if (colRand > 6)                                      // ensure range for randomization <= 1024
+							colRand = 6;
+						randomizer = pow(2, (4 + colRand));                   // calculate randomization range
+						temp.cw = rand() % static_cast<int>(randomizer + 1);  // randomize cw based on # of collisions
+					}
 					ready.push_back(temp);
 					pktQ.pop();
 				}
@@ -84,14 +88,14 @@ void DCF(struct node *nodeList) {
 					ready[i].time = clock;
 				}
 
-				// dif and cw complete, line idle, add to send deque
+				// dif and cw complete, line idle, add to send deque */
 				if (busy == 0 && ready[i].time < clock && ready[i].cw == 0) {
 					ready[i].finish = ready[i].time + ready[i].nav;
 					transmitting.push_back(ready[i]);
 					ready.erase(ready.begin() + i);
 				}
 
-				/* dif has not finished line goes busy, change start time, unpause cw, and put back in queue */
+				// dif has not finished line goes busy, change start time, unpause cw, and put back in queue 
 				if (busy == 1 && ready[i].time >= clock) {
 					ready[i].time = finishTime;
 					ready[i].cwPause = 0;
@@ -99,7 +103,7 @@ void DCF(struct node *nodeList) {
 					ready.erase(ready.begin() + i);
 				}
 
-				/* dif has finished line goes busy, change start time, pause cw, and put back in queue */
+				// dif has finished line goes busy, change start time, pause cw, and put back in queue 
 				if (busy == 1 && ready[i].time < clock) {
 					ready[i].time = finishTime;
 					ready[i].cwPause = 1;
@@ -111,20 +115,34 @@ void DCF(struct node *nodeList) {
 			} while (i < ready.size());
 		}
 
-		/* Transmit packet */
+		/* Transmit packets */
+		// No collision
 		if (transmitting.size() == 1) {
 			std::cout << "packet sent " << transmitting[0].time << "\n";
 			finishTime = transmitting[0].time + transmitting[0].nav;
 			std::cout << "finishTime = " << finishTime << "\n";
 			transmitting.clear();
+			j = j + 1;
 		}
 		
+		// With collision
+		else if (transmitting.size() > 1) {
+			std::cout << "collision\n";
+			finishTime = transmitting[0].time + transmitting[0].nav;
+			do{
+				transmitting[0].cwPause = 0;
+				collisions += 1;
+				pktQ.push(transmitting[0]);
+				transmitting.pop_front();
+				
+			} while (transmitting.size() != 0);
+		}
 		
 		/* Advance clock to next slot */
 		clock += 9;
 	
 	} while (pktQ.size() != 0 || ready.size() != 0);
-	
+	std::cout << "total packets sent for debugging " << j << "\n";
 }
 
 void RTSCTS(struct node *nodeList) {
