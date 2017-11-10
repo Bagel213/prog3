@@ -41,13 +41,15 @@ std::priority_queue<packet> pktQ;
 void DCF(struct node *nodeList) {
 	
 	std::ofstream outFile;
-	int clock = 0, i, j=0, randomizer;
-	bool busy = 0;
 	std::deque<packet> ready, transmitting;
 	struct packet temp;
+	bool busy = 0;
+	int clock = 0;
+	int i, j = 0;
+	int randomizer, colRand;
 	int dif = 28;
 	int finishTime = 0;
-	int collisions = 0, colRand;
+	int global_collisions = 0;
 
 	do {
 		
@@ -56,12 +58,12 @@ void DCF(struct node *nodeList) {
 			if (pktQ.size() != 0) {
 				temp = pktQ.top();
 				if (temp.time <= clock) {
-					temp.time = temp.time + dif;                              // account for DIF
-					if (temp.cwPause == 0) {                                  // check if cw countdown is paused
-						colRand = temp.collisions;                            // determine cw based on packet collisions
-						if (colRand > 6)                                      // ensure range for randomization <= 1024
+					temp.time = temp.time + dif;                          // account for DIF
+					if (temp.cwPause == 0) {                              // check if cw countdown is paused
+						colRand = temp.collisions;                        // determine cw based on packet collisions
+						if (colRand > 6)                                  // ensure range for randomization <= 1024
 							colRand = 6;
-						randomizer = pow(2, (4 + colRand));                   // calculate randomization range
+						randomizer = pow(2, (4 + colRand));               // calculate randomization range
 						temp.cw = rand() % static_cast<int>(randomizer);  // randomize cw based on # of collisions
 					}
 					ready.push_back(temp);
