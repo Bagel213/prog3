@@ -1,3 +1,2 @@
-if counter is paused due to busy channel, if on next attempt has to stop during DIF, does counter reset or stay paused? paused
-Is contention window global or per node? per packet essentially
+Are time slots network wide or do you just decrement every 9us from dif end?
 
