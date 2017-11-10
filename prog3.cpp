@@ -38,7 +38,6 @@ std::priority_queue<packet> pktQ;
  *          DCF             *
  ****************************/
 void DCF(struct node *nodeList) {
-	std::cout << "DCF\n";
 	std::ofstream outFile;
 	int clock = 0, i;
 	bool busy = 0;
@@ -55,10 +54,10 @@ void DCF(struct node *nodeList) {
 			if (pktQ.size() != 0) {
 				temp = pktQ.top();
 				if (temp.time <= clock) {
-					temp.time = temp.time + dif;
-					if (temp.cwPause == 0)
-						temp.cw = pow(2,(4+collisions));
-					if (temp.cw > 1024)
+					temp.time = temp.time + dif;         // account for DIF
+					if (temp.cwPause == 0)               // check if cw is paused
+						temp.cw = pow(2,(4+collisions)); // cw based on # of collisions
+					if (temp.cw > 1024)                  // max cw 1024
 						temp.cw = 1024;
 					ready.push_back(temp);
 					pktQ.pop();
