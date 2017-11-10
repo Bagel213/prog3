@@ -62,7 +62,7 @@ void DCF(struct node *nodeList) {
 						if (colRand > 6)                                      // ensure range for randomization <= 1024
 							colRand = 6;
 						randomizer = pow(2, (4 + colRand));                   // calculate randomization range
-						temp.cw = rand() % static_cast<int>(randomizer + 1);  // randomize cw based on # of collisions
+						temp.cw = rand() % static_cast<int>(randomizer);  // randomize cw based on # of collisions
 					}
 					ready.push_back(temp);
 					pktQ.pop();
