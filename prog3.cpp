@@ -3,7 +3,7 @@
 #include <queue>
 #include <string>
 #include <cstdlib>
-#include <vector>
+#include <cmath>
 #include <deque>
 
 // Packet structure
@@ -16,8 +16,9 @@ struct packet {
 	int nav;
 	int cw;
 	int finish;
-	bool operator<(const packet& rhs) const {
-		return time < rhs.time;
+	bool cwPause;
+	bool operator < (const packet& rhs) const {
+		return rhs.time < time;
 	}
 };
 
@@ -37,6 +38,7 @@ std::priority_queue<packet> pktQ;
  *          DCF             *
  ****************************/
 void DCF(struct node *nodeList) {
+	std::cout << "DCF\n";
 	std::ofstream outFile;
 	int clock = 0, i;
 	bool busy = 0;
@@ -44,97 +46,86 @@ void DCF(struct node *nodeList) {
 	struct packet temp;
 	int dif = 28;
 	int finishTime = 0;
-	
-	// Logging variables
-	int collisions = 0, transmissions = 0;
-	int freeTime = 0;
-	//float throughput;
-	//float latency;
+	int collisions = 0;
 
-	while (pktQ.size() != 0){		
-				
-		/* check transmitting finish time against clock*/
-		if (finishTime > clock)
-			busy = 1;
-		else {
-			busy = 0;
-			freeTime += clock - finishTime;
-		}
-
-		//print out any that finish transmitting and remove from tranmitting deque
-
-		/* Add all ready packets to ready deque */ 
+	do {
+		
+		/* Put all ready packets into ready deque */
 		do {
-			temp = pktQ.top();
-			if (temp.time <= clock) {
-				temp.time = temp.time + dif; // account for dif in start time
-				temp.cw = 2 ^ (4 + collisions); // adjust collision window based on number of collisions
-				if (temp.cw > 1024)
-					temp.cw = 1024;
-				ready.push_back(temp);
-				pktQ.pop();
+			if (pktQ.size() != 0) {
+				temp = pktQ.top();
+				if (temp.time <= clock) {
+					temp.time = temp.time + dif;
+					if (temp.cwPause == 0)
+						temp.cw = pow(2,(4+collisions));
+					if (temp.cw > 1024)
+						temp.cw = 1024;
+					ready.push_back(temp);
+					pktQ.pop();
+				}
 			}
-			if (temp.time > clock)
-				break;
 		} while (pktQ.size() != 0 && temp.time <= clock);
 		
-		/* For all ready packets determine action */	
-		i = 0;
-		do{
-			// line idle, dif done, decrement cw
-			if (busy == 0 && ready[i].time < clock && ready[i].cw != 0) { 
-				if (clock%9 == 0) // time slots multiples of 9
+		//std::cout << pktQ.size() << "\n";
+		//std::cout << ready.size() << "\n";
+		//std::cout << ready[0].time << " " << ready[0].cw << " " << clock <<"\n";
+		
+		if (finishTime > clock)
+			busy = 1;
+		else
+			busy = 0;
+		
+		/* Packet Events */
+		if (ready.size() != 0) {
+			i = 0;
+			do {
+				// line idle, dif done, decrement cw
+				if (busy == 0 && ready[i].time < clock && ready[i].cw != 0) {
 					ready[i].cw--;
-				ready[i].time = clock;
-			}
-			
-			// dif and cw complete, line idle, add to send deque
-			if (busy == 0 && ready[i].time < clock && ready[i].cw == 0) {
-				ready[i].finish = ready[i].time + ready[i].nav;
-				transmitting.push_back(ready[i]);
-				transmissions += 1;
-				ready.erase(ready.begin() + i);
-			}
-			
-			// Dif complete line goes busy put back in queue with decremented cw and updated start time
-			else if (busy == 1 && ready[i].time < clock && ready[i].cw != 0){
-				ready[i].time = ready[i].time = finishTime;
-				pktQ.push(ready[i]);
-				ready.erase(ready.begin() + i);
-			}
+					ready[i].time = clock;
+				}
 
-			// dif has not finished line goes busy, change start time and put back in queue
-			else if (busy == 1 && ready[i].time >= clock) {  
-				ready[i].time = finishTime;
-				pktQ.push(ready[i]);
-				ready.erase(ready.begin() + i);
-			}
-			
-			i++;
-		} while (i < ready.size());
+				// dif and cw complete, line idle, add to send deque
+				if (busy == 0 && ready[i].time < clock && ready[i].cw == 0) {
+					ready[i].finish = ready[i].time + ready[i].nav;
+					transmitting.push_back(ready[i]);
+					ready.erase(ready.begin() + i);
+				}
 
-		
-		/* Message transmision handling	*/
-		if (transmitting.size() > 1) { //collision
-			// change start time put back in queue
-			collisions += transmitting.size() - 1;
-			finishTime = transmitting[0].finish;
-			
+				/* dif has not finished line goes busy, change start time, unpause cw, and put back in queue */
+				if (busy == 1 && ready[i].time >= clock) {
+					ready[i].time = finishTime;
+					ready[i].cwPause = 0;
+					pktQ.push(ready[i]);
+					ready.erase(ready.begin() + i);
+				}
+
+				/* dif has finished line goes busy, change start time, pause cw, and put back in queue */
+				if (busy == 1 && ready[i].time < clock) {
+					ready[i].time = finishTime;
+					ready[i].cwPause = 1;
+					pktQ.push(ready[i]);
+					ready.erase(ready.begin() + i);
+				}
+
+				i++;
+			} while (i < ready.size());
 		}
-		else if (transmitting.size() == 1) {
-			//transmit message
-			finishTime = transmitting[0].finish;	
+
+		/* Transmit packet */
+		if (transmitting.size() == 1) {
+			std::cout << "packet sent " << transmitting[0].time << "\n";
+			finishTime = transmitting[0].time + transmitting[0].nav;
+			std::cout << "finishTime = " << finishTime << "\n";
+			transmitting.clear();
 		}
 		
-		else if (transmitting.size() == 0)
-			finishTime = 0;
-
-		/* Clock advance */
+		
+		/* Advance clock to next slot */
 		clock += 9;
-
-
-	}
-	return;
+	
+	} while (pktQ.size() != 0 || ready.size() != 0);
+	
 }
 
 void RTSCTS(struct node *nodeList) {
@@ -152,9 +143,8 @@ int main(int argc, char *argv[]) {
 	inFile.open(argv[2]);
 	struct packet pktTemp;
 	int size, nodes = 0;
-
-	// Still need to build array of node structs for logging purposes
-	
+	std::string select;
+		
 	// Read in # of packets
 	inFile >> size;
 
@@ -168,17 +158,21 @@ int main(int argc, char *argv[]) {
 		pktTemp.nav = 44 + 10 + ((pktTemp.pkt_size / 6000000) * 1000000);
 		pktTemp.cw = 16;
 		pktTemp.finish = 0;
+		pktTemp.cwPause = 0;
 		pktQ.push(pktTemp);
 		if (pktTemp.src_node > nodes)
 			nodes = pktTemp.src_node;
 	}
+	
 	struct node nodeList[nodes];
 	inFile.close();
 	
 	// Call appropriate simulator function
-	if (argv[1] == "DCF" || argv[1] == "dcf")
+	select = argv[1];
+	if (select.compare("DCF") == 0 || select.compare("dcf") == 0) 
 		DCF(nodeList);
-	else if (argv[1] == "RTS" || argv[1] == "rts")
+	
+	else if (select.compare("RTS") == 0 || select.compare("rts") == 0)
 		RTSCTS(nodeList);
 	else
 		std::cout << "Invalid simulator selection.";
