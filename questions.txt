@@ -1,3 +1,3 @@
-if counter is paused due to busy channel, if on next attempt has to stop during DIF, does counter reset or stay paused?
-Is contention window global or per node?
+if counter is paused due to busy channel, if on next attempt has to stop during DIF, does counter reset or stay paused? paused
+Is contention window global or per node? per packet essentially
 

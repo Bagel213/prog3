@@ -16,6 +16,7 @@ struct packet {
 	int nav;
 	int cw;
 	int finish;
+	int collisions;
 	bool cwPause;
 	bool operator < (const packet& rhs) const {
 		return rhs.time < time;
@@ -57,7 +58,7 @@ void DCF(struct node *nodeList) {
 				if (temp.time <= clock) {
 					temp.time = temp.time + dif;                              // account for DIF
 					if (temp.cwPause == 0) {                                  // check if cw countdown is paused
-						colRand = collisions;
+						colRand = temp.collisions;                            // determine cw based on packet collisions
 						if (colRand > 6)                                      // ensure range for randomization <= 1024
 							colRand = 6;
 						randomizer = pow(2, (4 + colRand));                   // calculate randomization range
@@ -89,22 +90,22 @@ void DCF(struct node *nodeList) {
 				}
 
 				// dif and cw complete, line idle, add to send deque */
-				if (busy == 0 && ready[i].time < clock && ready[i].cw == 0) {
+				else if (busy == 0 && ready[i].time < clock && ready[i].cw == 0) {
 					ready[i].finish = ready[i].time + ready[i].nav;
 					transmitting.push_back(ready[i]);
 					ready.erase(ready.begin() + i);
 				}
 
-				// dif has not finished line goes busy, change start time, unpause cw, and put back in queue 
-				if (busy == 1 && ready[i].time >= clock) {
+				// dif has not finished line goes busy, change start time, pause cw, and put back in queue 
+				else if (busy == 1 && ready[i].time >= clock) {
 					ready[i].time = finishTime;
-					ready[i].cwPause = 0;
+					ready[i].cwPause = 1;
 					pktQ.push(ready[i]);
 					ready.erase(ready.begin() + i);
 				}
 
 				// dif has finished line goes busy, change start time, pause cw, and put back in queue 
-				if (busy == 1 && ready[i].time < clock) {
+				else if (busy == 1 && ready[i].time < clock) {
 					ready[i].time = finishTime;
 					ready[i].cwPause = 1;
 					pktQ.push(ready[i]);
@@ -131,7 +132,7 @@ void DCF(struct node *nodeList) {
 			finishTime = transmitting[0].time + transmitting[0].nav;
 			do{
 				transmitting[0].cwPause = 0;
-				collisions += 1;
+				transmitting[0].collisions += 1;
 				pktQ.push(transmitting[0]);
 				transmitting.pop_front();
 				
@@ -176,6 +177,7 @@ int main(int argc, char *argv[]) {
 		pktTemp.cw = 16;
 		pktTemp.finish = 0;
 		pktTemp.cwPause = 0;
+		pktTemp.collisions = 0;
 		pktQ.push(pktTemp);
 		if (pktTemp.src_node > nodes)
 			nodes = pktTemp.src_node;
