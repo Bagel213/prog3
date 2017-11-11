@@ -6,6 +6,7 @@
 #include <cmath>
 #include <deque>
 #include <vector>
+#include <algorithm>
 
 // Packet structure
 struct packet {
@@ -21,6 +22,18 @@ struct packet {
 	bool cwPause, sent;
 	bool operator < (const packet& rhs) const {
 		return rhs.time < time;
+	}
+};
+
+/* Order of ready deque by cw */
+struct cwCompartor
+{
+	bool operator()(const packet &first, const packet &sec)
+	{
+		if (first.cw < sec.cw)
+			return true;
+		else
+			return false;
 	}
 };
 
@@ -76,11 +89,11 @@ void DCF(std::vector<node> &nodes) {
 		
 		/* Packet Events */
 		if (ready.size() != 0) {
+			std::sort(ready.begin(), ready.end(), cwCompartor()); // Sort ready deque by cw
 			i = 0;
 			do {
 				// line idle, dif done, decrement cw
 				if (busy == 0 && ready[i].time <= clock && ready[i].cw != 0) {
-					//std::cout << "node " << ready[i].src_node << " cw " << ready[i].cw << "\n";
 					ready[i].cw--;
 					ready[i].time += 9;
 				}
@@ -95,13 +108,11 @@ void DCF(std::vector<node> &nodes) {
 
 				// dif has not finished line goes busy, change start time put back in queue 
 				if (busy == 1 && ready[i].time < clock) {
-					//std::cout << "dif not finished\n";
 					ready[i].time = finishTime + dif;
 				}
 
 				// dif has finished line goes busy, change start time, pause cw, and put back in queue 
 				if (busy == 1 && ready[i].time >= clock) {
-					//std::cout << "dif finished\n";
 					ready[i].time = finishTime + dif;
 				}
 
@@ -132,14 +143,10 @@ void DCF(std::vector<node> &nodes) {
 				transmitting[0].time = finishTime + dif;                                                // New start time
 				// for troubleshooting
 				std::cout << transmitting[0].cw << " " << transmitting[0].time << "\n";
-				if (transmitting[0].cw < lastCW)                                                        // Attempt to give some order
-					ready.push_front(transmitting[0]);                                                  // May  or need change to
-				else                                                                                    // better inserstion into ready
-					ready.push_back(transmitting[0]);
-				lastCW = transmitting[0].cw;
+			    ready.push_back(transmitting[0]);
 				transmitting.pop_front();
 			} while (transmitting.size() != 0);
-			lastCW = 0;
+			
 		}
 
 		clock += 1;
