@@ -24,7 +24,7 @@ struct packet {
 	}
 };
 
-// Node structure for experimentation log
+// Node structure
 struct node {
 
 	std::priority_queue<packet> pktQ;
@@ -41,6 +41,7 @@ void DCF(std::vector<node> &nodes) {
 	std::deque<packet> ready, transmitting;
 	struct packet temp;
 	bool busy = 0;
+	bool check;
 	int clock = 0;
 	int i, j=0;
 	int dif = 28;
@@ -142,8 +143,15 @@ void DCF(std::vector<node> &nodes) {
 		}
 
 		clock += 1;
+		
+		// Check to see if all packets sent
+		check = false;
+		for (i = 0; i < nodes.size(); i++) {
+			if (nodes[i].pktQ.size() != 0 || ready.size() != 0)
+				check = true;
+		}
 
-	} while (clock < 20000);
+	} while (check);
 	
 	
 	return;
