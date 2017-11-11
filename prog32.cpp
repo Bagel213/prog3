@@ -154,7 +154,7 @@ void DCF(std::vector<node> &nodes) {
 	} while (check);
 	
 	
-	return;
+	return; // end DCF
 	
 }
 
