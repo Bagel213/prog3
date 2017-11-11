@@ -132,8 +132,8 @@ void DCF(std::vector<node> &nodes) {
 				// for troubleshooting
 				std::cout << transmitting[0].cw << " " << transmitting[0].time << "\n";
 				if (transmitting[0].cw < lastCW)                                                        // Attempt to give some order
-					ready.push_front(transmitting[0]);                                                  // May be unessecary or need change
-				else
+					ready.push_front(transmitting[0]);                                                  // May  or need change to
+				else                                                                                    // better inserstion into ready
 					ready.push_back(transmitting[0]);
 				lastCW = transmitting[0].cw;
 				transmitting.pop_front();
