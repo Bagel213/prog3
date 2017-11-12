@@ -65,7 +65,7 @@ void DCF(std::vector<node> &nodes) {
 			if (nodes[i].pktQ.size() != 0) {
 				do {
 					temp = nodes[i].pktQ.top();
-					if (temp.time <= clock ) {                               // Check for nodes with ready packets
+					if (temp.time <= clock ) {                               
 						if (nodes[temp.src_node].pkt_in_ready == 1)          // Check if node already has a packet attempting to send
 							break;
 						nodes[i].pktQ.pop();                                 // Remove from node's queue
