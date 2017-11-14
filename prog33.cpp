@@ -104,13 +104,15 @@ void DCF(std::vector<node> &nodes, int size, char *file) {
 				if (busy == 0) {
 					if (ready[i].difStart == clock)
 						outFile << "Time: " << clock << ": Node " << ready[i].src_node << " started waiting for DIFS\n";
-					else if (ready[i].time == clock && ready[i].cwStarted == 0 && ready[i].cwPause == 0)
-						outFile << "Time: " << clock << ": Node " << ready[i].src_node << " finished waiting for DIFS and started waiting for "
-						<< ready[i].cw << " slots\n";
-					else if (ready[i].time == clock && ready[i].cwStarted == 1 && ready[i].cwPause == 1) {
-						outFile << "Time: " << clock << ": Node " << ready[i].src_node << " finished waiting for DIFS and started waiting for "
+					if (ready[i].time == clock) {
+						if (ready[i].cwStarted == 0 && ready[i].cwPause == 0)
+							outFile << "Time: " << clock << ": Node " << ready[i].src_node << " finished waiting for DIFS and started waiting for "
+							<< ready[i].cw << " slots\n";
+						else if (ready[i].cwStarted == 1 && ready[i].cwPause == 1) {
+							outFile << "Time: " << clock << ": Node " << ready[i].src_node << " finished waiting for DIFS and started waiting for "
 							<< ready[i].cw << " slots (counter was freezed!)\n";
-						ready[i].cwPause = 0;  // Set paused flag to "unpaused"
+							ready[i].cwPause = 0;  // Set paused flag to "unpaused"
+						}
 					}
 
 					// line idle, dif done, decrement cw
