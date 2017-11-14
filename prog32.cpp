@@ -14,12 +14,12 @@ struct packet {
 	int src_node;
 	int dst_node;
 	int pkt_size;
-	double time, difStart;                            // time is time post dif for sending, difstart is start of dif countdown
+	double time, difStart;                         // time is time post dif for sending, difstart is start of dif countdown
 	int nav;                                       // Total time for send and ACK
 	int cw;                                        // Window counter
 	int collisions;                                // Collision tracker for cw backoff            
 	bool cwPause, cwStarted;                       // Trackers for cw counter
-	double org_start;                                 // maintain original start time for logging
+	double org_start;                              // maintain original start time for logging
 	bool operator < (const packet& rhs) const {    // Sort with difStart time as key
 		return rhs.difStart < difStart;
 	}
@@ -53,8 +53,8 @@ struct node {
 /***************************
 *           DCF            *
 ****************************/
-void DCF(std::vector<node> &nodes, int size) {
-	//std::ofstream outFile;
+void DCF(std::vector<node> &nodes, int size, char *file) {
+	std::ofstream outFile;
 	std::deque<packet> ready, transmitting;
 	struct packet temp;
 	bool busy = 0;
@@ -63,7 +63,7 @@ void DCF(std::vector<node> &nodes, int size) {
 	int i, j=0;
 	int dif = 28;
 	int finishTime;
-
+	outFile.open(file);
 	//logging variables
 	int total_collisions = 0;
 	int total_transmissions = 0;
@@ -114,12 +114,12 @@ void DCF(std::vector<node> &nodes, int size) {
 				
 				// Output appropriate message depending on status of packet
 				if (busy == 0 && ready[i].difStart == clock)
-					std::cout << "Time: " << clock << ": Node " << ready[i].src_node << " started waiting for DIFS\n";
+					outFile << "Time: " << clock << ": Node " << ready[i].src_node << " started waiting for DIFS\n";
 				else if (busy == 0 && ready[i].time == clock && ready[i].cwStarted == 0 && ready[i].cwPause == 0)
-					std::cout << "Time: " << clock << ": Node " << ready[i].src_node << " finished waiting for DIFS and started waiting for "
+					outFile << "Time: " << clock << ": Node " << ready[i].src_node << " finished waiting for DIFS and started waiting for "
 					<< ready[i].cw << " slots\n";
 				else if (busy == 0 && ready[i].time == clock && ready[i].cwStarted == 1 && ready[i].cwPause == 1) {
-					std::cout << "Time: " << clock << ": Node " << ready[i].src_node << " finished waiting for DIFS and started waiting for "
+					outFile << "Time: " << clock << ": Node " << ready[i].src_node << " finished waiting for DIFS and started waiting for "
 						<< ready[i].cw << " slots (counter was freezed!)\n";
 					ready[i].cwPause = 0;  // Set paused flag to "unpaused"
 				}
@@ -133,7 +133,7 @@ void DCF(std::vector<node> &nodes, int size) {
 
 				// dif and cw complete, line idle, add to send deque */
 			    if (busy == 0 && ready[i].time <= clock && ready[i].cw == 0) {
-					std::cout << "Time: " << clock << " : Node " << ready[i].src_node << " finished waiting and is ready to send the packet\n";
+					outFile << "Time: " << clock << " : Node " << ready[i].src_node << " finished waiting and is ready to send the packet\n";
 				    transmitting.push_back(ready[i]);                // Add to tranmitting list and remove from ready
 					ready.erase(ready.begin() + i);
 					nodes[ready[i].src_node].pkts_attempted += 1;    // node transmissions
@@ -153,7 +153,7 @@ void DCF(std::vector<node> &nodes, int size) {
 					ready[i].time = finishTime + dif;
 					ready[i].cwPause = 1;             // Set count paused flag
 					ready[i].cw += 1;                 // Account for cw being decremented when other is transmitting due to order of operations
-					std::cout << "Time: " << clock << ": Node " << ready[i].src_node << " had to wait for "
+					outFile << "Time: " << clock << ": Node " << ready[i].src_node << " had to wait for "
 						<< ready[i].cw << " more slots that channel became busy!\n";
 				}
 
@@ -165,13 +165,13 @@ void DCF(std::vector<node> &nodes, int size) {
 		// No collision
 		if (transmitting.size() == 1) {
 			finishTime = transmitting[0].time + transmitting[0].nav;
-			std::cout << "Time: " << finishTime << ": Node " << transmitting[0].src_node << "sent "
+			outFile << "Time: " << finishTime << ": Node " << transmitting[0].src_node << "sent "
 				<< transmitting[0].pkt_size << " bits\n";
-			total_bits_sent = total_bits_sent + transmitting[0].pkt_size;
+			total_bits_sent = total_bits_sent + transmitting[0].pkt_size;                         // for throughput calculation
 			nodes[transmitting[0].src_node].pkt_in_ready = 0;                                     // Reset pkt_in_ready flag for node to 0
-			nodes[transmitting[0].src_node].pkts_transmitted += 1;
-			latcalc = (clock - transmitting[0].org_start);
-			nodes[transmitting[0].src_node].latency += latcalc;                                  /* calculate latency.
+			nodes[transmitting[0].src_node].pkts_transmitted += 1;                                // Total successful transmissions for each node
+			latcalc = (clock - transmitting[0].org_start);                                        // for average latency calculation
+			nodes[transmitting[0].src_node].latency += latcalc;                                   /* calculate latency.
 			                                                                                        Time of actual send - original ready time */
 			transmitting.clear();
 			// For troubleshooting
@@ -183,9 +183,10 @@ void DCF(std::vector<node> &nodes, int size) {
 		else if (transmitting.size() > 1) {
 			//std::cout << "collision\n";
 			do {
-				std::cout << "Time: " << clock << ": Node " << transmitting[0].src_node << "attempted to send "
+				outFile << "Time: " << clock << ": Node " << transmitting[0].src_node << "attempted to send "
 					<< transmitting[0].pkt_size << " bits, but had a collision\n";
-				finishTime = transmitting[0].time + transmitting[0].nav;                                // Finish Time for busy flag
+				if (finishTime < (transmitting[0].time + transmitting[0].nav))                          // Use longest transmission time for finish time
+					finishTime = transmitting[0].time + transmitting[0].nav;                            // Finish Time for busy flag
 				transmitting[0].collisions += 1;                                                        // current packet collisions
 				total_collisions += 1;                                                                  // track network wide collisions
 				transmitting[0].cw = rand() % static_cast<int>(pow(2, 4 + transmitting[0].collisions)); // Calculate new cw based on collisions
@@ -215,14 +216,14 @@ void DCF(std::vector<node> &nodes, int size) {
 	
 	/* Logging calculations and output */
 	throughput = (total_bits_sent / 1000)/(clock / 1000000);
-	std::cout << "Network throughput: " << throughput << " kbps\n";
-	std::cout << "Total number of attempted transmissions: " << total_transmissions << "\n";
-	std::cout << "Total number of collisions: " << total_collisions << "\n";
+	outFile << "Network throughput: " << throughput << " kbps\n";
+	outFile << "Total number of attempted transmissions: " << total_transmissions << "\n";
+	outFile << "Total number of collisions: " << total_collisions << "\n";
 	free_fraction = time_free / clock;
-	std::cout << "Fraction of time medium was free: " << free_fraction << "\n";
+	outFile << "Fraction of time medium was free: " << free_fraction << "\n";
 	for (i = 0; i < nodes.size(); i++) {
 		avg_latency = nodes[i].latency / nodes[i].pkts_transmitted;
-		std::cout << "Node: " << i << " Avg latency: " << avg_latency << "\n";
+		outFile << "Node: " << i << " Avg latency: " << avg_latency << "\n";
 	}
 	return; 
 	
@@ -255,7 +256,7 @@ int main(int argc, char *argv[]) {
 	inFile >> size;
 
 	/* Read in packets and set defaults */
-	while (inFile.good()) {
+	while (inFile.good() && i < size) {
 		inFile >> pktTemp.pkt_id;
 		inFile >> pktTemp.src_node;
 		inFile >> pktTemp.dst_node;
@@ -272,6 +273,7 @@ int main(int argc, char *argv[]) {
 		pktList.push_back(pktTemp);
 		if (pktTemp.src_node > nodeTemp)                                  // Determine number of nodes
 			nodeTemp = pktTemp.src_node;
+		i++;
 	}
 	
 	nodes.resize(nodeTemp + 1); // Resize node vector to fit number of nodes
@@ -289,7 +291,7 @@ int main(int argc, char *argv[]) {
 	/* Call appropriate simulator function */
 	select = argv[1];
 	if (select.compare("DCF") == 0 || select.compare("dcf") == 0)
-		DCF(nodes, size);
+		DCF(nodes, size, argv[3]);
 
 	else if (select.compare("RTS") == 0 || select.compare("rts") == 0)
 		RTSCTS(nodes);
@@ -297,7 +299,5 @@ int main(int argc, char *argv[]) {
 		std::cout << "Invalid simulator selection.";
 
 	return 0;
-	
-		
 }
 
