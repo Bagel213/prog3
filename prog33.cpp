@@ -226,6 +226,8 @@ void DCF(std::vector<node> &nodes, int size, char *file) {
 *         RTS/CTS           *
 *****************************/
 void RTSCTS(std::vector<node> &nodes, int size, char *file) {
+	
+	int rts_cts = 30 + 10 + 30 + 10;
 	std::ofstream outFile;
 	std::deque<packet> ready, transmitting;
 	struct packet temp;
@@ -234,8 +236,7 @@ void RTSCTS(std::vector<node> &nodes, int size, char *file) {
 	double clock = 0;
 	int i, j = 0;
 	int dif = 28;
-	int finishTime;
-	int rts_cts = 30 + 10 + 30 + 10;
+	int finishTime = 0;
 	int successful_transmissions = 0;
 	outFile.open(file);
 	//logging variables
@@ -250,6 +251,7 @@ void RTSCTS(std::vector<node> &nodes, int size, char *file) {
 	long double avg_latency;
 
 	do {
+		/* Add packets to ready list*/
 		i = 0;
 		do {
 			if (nodes[i].pktQ.size() != 0) {
@@ -260,92 +262,133 @@ void RTSCTS(std::vector<node> &nodes, int size, char *file) {
 							break;
 						nodes[i].pktQ.pop();                                 // Remove from node's queue
 						temp.time += dif + temp.difStart;                    // Account for dif
+						temp.cw = rand() % 16;                               // Randomize the cw countdown [0-15] for initial DIF + [0-15]
 						nodes[temp.src_node].pkt_in_ready = 1;               // Set node flag pkt_in_ready to 1
 						ready.push_back(temp);                               // Add to ready deque
 					}
 				} while (nodes[i].pktQ.size() != 0 && temp.time <= clock);
 			}
-		i++;
-	} while (i < nodes.size());
+			i++;
+		} while (i < nodes.size());
 
-	/* Set busy flag */
-	if (finishTime > clock) {
-		busy = 1;
-		time_busy += 1;
-	}
-	else {
-		busy = 0;
-		time_free += 1;
-	}
-	
-	if (ready.size() != 0) {
-		i = 0;
-		do {
-			if(busy == 0){
-				if (ready[i].difStart == clock)
-					outFile << "Time: " << clock << ": Node " << ready[i].src_node << " started waiting for DIFS\n";
-			
-				else if (ready[i].time <= clock){
-					outFile << "Time: " << clock << ": Node " << ready[i].src_node << " finished waiting for DIFS and is sending RTS\n";			
-					transmitting.push_back(ready[i]);                // Add to tranmitting list and remove from ready
-					ready.erase(ready.begin() + i);
-					nodes[ready[i].src_node].pkts_attempted += 1;    // node transmissions
-					total_transmissions += 1;                        // network wide transmissions
-					i--;                                             // Account for removal
+		/* Set busy flag */
+		if (finishTime > clock) {
+			busy = 1;
+			time_busy += 1;
+		}
+		else {
+			busy = 0;
+			time_free += 1;
+		}
+
+		/* Packet Events */
+		if (ready.size() != 0) {
+			i = 0;
+			do {
+
+				// Output appropriate message depending on status of packet
+				if (busy == 0) {
+					if (ready[i].difStart == clock)
+						outFile << "Time: " << clock << ": Node " << ready[i].src_node << " started waiting for DIFS\n";
+					if (ready[i].time == clock) {
+						if (ready[i].cwStarted == 0 && ready[i].cwPause == 0)
+							outFile << "Time: " << clock << ": Node " << ready[i].src_node << " finished waiting for DIFS and started waiting for "
+							<< ready[i].cw << " slots\n";
+						else if (ready[i].cwStarted == 1 && ready[i].cwPause == 1) {
+							outFile << "Time: " << clock << ": Node " << ready[i].src_node << " finished waiting for DIFS and started waiting for "
+								<< ready[i].cw << " slots (counter was freezed!)\n";
+							ready[i].cwPause = 0;  // Set paused flag to "unpaused"
+						}
+					}
+
+					// line idle, dif done, decrement cw
+					if (ready[i].time <= clock) {
+						if (ready[i].cw != 0) {
+							ready[i].cwStarted = 1;  // Set flag for countdown started
+							ready[i].cw--;
+							ready[i].time += 9;
+						}
+
+						// dif and cw complete, line idle, add to send deque */
+						else {
+							outFile << "Time: " << clock << " : Node " << ready[i].src_node << " finished waiting and is ready to send the packet\n";
+							transmitting.push_back(ready[i]);                // Add to tranmitting list and remove from ready
+							ready.erase(ready.begin() + i);
+							nodes[ready[i].src_node].pkts_attempted += 1;    // node transmissions
+							total_transmissions += 1;                        // network wide transmissions
+							i--;                                             // Account for removal
+						}
+					}
 				}
-			}
-	
-			else if (busy ==1 && clock > ready[i].time) {
-				outFile << "Time: " << clock << ": Node " << ready[i].src_node << " has to wait channel is busy\n";
-				ready[i].difStart = finishTime;
-				ready[i].time = finishTime + dif;
-			}
-		i += 1;
-		} while (i < ready.size());
-	}
 
-	/* Transmit packets */
-	// No collision
-	if (transmitting.size() == 1) {
-	finishTime = transmitting[0].time + transmitting[0].nav + rts_cts;
-	outFile << "Time: " << finishTime << ": Node " << transmitting[0].src_node << " sent "
-	<< transmitting[0].pkt_size << " bits\n";
-	successful_transmissions += 1;                                                        // count total successful transmissions
-	total_bits_sent = total_bits_sent + transmitting[0].pkt_size;                         // for throughput calculation
-	nodes[transmitting[0].src_node].pkt_in_ready = 0;                                     // Reset pkt_in_ready flag for node to 0
-	nodes[transmitting[0].src_node].pkts_transmitted += 1;                                // Total successful transmissions for each node
-	latcalc = (clock - transmitting[0].org_start);                                        // for average latency calculation
-	nodes[transmitting[0].src_node].latency += latcalc;                                   /* calculate latency.
-																							Time of actual send - original ready time */
-	transmitting.clear();
-	}
+				else if (busy == 1) {
+					// dif has not finished line goes busy, change start time, keep in ready deque 
+					if (ready[i].time < clock) {
+						ready[i].difStart = finishTime;
+						ready[i].time = finishTime + dif;
+					}
 
-	/* With collision */
-	else if (transmitting.size() > 1) {
-	//std::cout << "collision\n";
-	do {
-	outFile << "Time: " << clock << ": Node " << transmitting[0].src_node << "attempted to send "
-	<< transmitting[0].pkt_size << " bits, but had a collision\n";
-	if (finishTime < (transmitting[0].time + transmitting[0].nav + rts_cts))                // Use longest transmission time for finish time
-	finishTime = transmitting[0].time + transmitting[0].nav + rts_cts;                  // Finish Time for busy flag
-	transmitting[0].collisions += 1;                                                        // current packet collisions
-	total_collisions += 1;                                                                  // track network wide collisions
-	transmitting[0].difStart = finishTime;                                                  // Set DIF start to line idle time
-	transmitting[0].time = transmitting[0].difStart + dif;                                  // Set countdown start time
-	ready.push_back(transmitting[0]);                                                       // Put back in ready deque
-	transmitting.pop_front();
-	} while (transmitting.size() != 0);
+					// dif has finished line goes busy, change start time, pause cw(set flag), and keep in ready deque 
+					else if (ready[i].difStart < clock && ready[i].cwPause != 1) {
+						ready[i].difStart = finishTime;
+						ready[i].time = finishTime + dif;
+						ready[i].cwPause = 1;             // Set count paused flag
+						ready[i].cw += 1;                 // Account for cw being decremented when other is transmitting due to order of operations
+						outFile << "Time: " << clock << ": Node " << ready[i].src_node << " had to wait for "
+							<< ready[i].cw << " more slots that channel became busy!\n";
+					}
+				}
+				i++;
+			} while (i < ready.size());
+		}
 
-	}
+		/* Transmit packets */
+		// No collision
+		if (transmitting.size() == 1) {
+			finishTime = transmitting[0].time + rts_cts + transmitting[0].nav;
+			outFile << "Time: " << finishTime << ": Node " << transmitting[0].src_node << " sent "
+				<< transmitting[0].pkt_size << " bits\n";
+			successful_transmissions += 1;                                                        // count total successful transmissions
+			total_bits_sent = total_bits_sent + transmitting[0].pkt_size;                         // for throughput calculation
+			nodes[transmitting[0].src_node].pkt_in_ready = 0;                                     // Reset pkt_in_ready flag for node to 0
+			nodes[transmitting[0].src_node].pkts_transmitted += 1;                                // Total successful transmissions for each node
+			latcalc = (clock - transmitting[0].org_start);                                        // for average latency calculation
+			nodes[transmitting[0].src_node].latency += latcalc;                                   /* calculate latency.
+																								  Time of actual send - original ready time */
+			transmitting.clear();
+		}
 
-	/* Advance Clock */
-	clock += 1;
+		// With collision
+		else if (transmitting.size() > 1) {
+			//std::cout << "collision\n";
+			do {
+				outFile << "Time: " << clock << ": Node " << transmitting[0].src_node << "attempted to send "
+					<< transmitting[0].pkt_size << " bits, but had a collision\n";
+				if (finishTime < (transmitting[0].time + rts_cts + transmitting[0].nav))                          // Use longest transmission time for finish time
+					finishTime = transmitting[0].time + rts_cts + transmitting[0].nav;                            // Finish Time for busy flag
+				transmitting[0].collisions += 1;                                                        // current packet collisions
+				total_collisions += 1;                                                                  // track network wide collisions
+				transmitting[0].cw = rand() % static_cast<int>(pow(2, 4 + transmitting[0].collisions)); // Calculate new cw based on collisions
+				transmitting[0].difStart = finishTime;                                                  // Set DIF start to line idle time
+				transmitting[0].time = transmitting[0].difStart + dif;                                  // Set countdown start time
+				transmitting[0].cwStarted = 0;                                                          // Reset defaults for cw flags
+				transmitting[0].cwPause = 0;
+				// for troubleshooting
+				//std::cout << transmitting[0].src_node << " " << transmitting[0].time << "\n";
+				ready.push_back(transmitting[0]);                                                       // Put back in ready deque
+				transmitting.pop_front();
+			} while (transmitting.size() != 0);
 
+		}
 
-	/* Check to see if all packets sent */
-	check = false;
-	if (successful_transmissions < size)
-		check = true;
+		/* Advance Clock*/
+		clock += 1;
+
+		/* Check to see if all packets sent */
+		check = false;
+		if (successful_transmissions < size)
+			check = true;
+
 
 	} while (check);
 
@@ -360,8 +403,8 @@ void RTSCTS(std::vector<node> &nodes, int size, char *file) {
 		avg_latency = nodes[i].latency / nodes[i].pkts_transmitted;
 		outFile << "Node: " << i << " Avg latency: " << avg_latency << "\n";
 	}
-	outFile.close();
 	return;
+	outFile.close();
 } // end RTS/CTS
 
 
